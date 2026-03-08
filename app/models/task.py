@@ -65,6 +65,7 @@ class TaskInstance(Base):
     ai_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     ai_output: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     human_feedback: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    depends_on: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # array of TaskInstance UUIDs
     parallel_prep_status: Mapped[str] = mapped_column(String, nullable=False, default="NONE")
     parallel_prep_output: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

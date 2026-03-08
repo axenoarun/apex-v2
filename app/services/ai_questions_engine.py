@@ -95,19 +95,27 @@ async def generate_questions_for_phase(
             },
         )
 
-        system_prompt = f"""You are an expert CJA migration consultant generating questions for the {role} role.
-This is Phase {phase_def.phase_number}: {phase_def.name}.
-Project: {project.name} for client {project.client_name}.
+        # Use agent's system_prompt as base if available
+        base_prompt = agent_def.system_prompt or ""
+        system_prompt = f"""{base_prompt}
 
-Generate focused questions that will help complete the tasks assigned to this role in this phase.
+CURRENT CONTEXT:
+- Role being questioned: {role}
+- Phase {phase_def.phase_number}: {phase_def.name}
+- Project: {project.name} for client {project.client_name}
+- Phase description: {phase_def.description or 'N/A'}
+
+INSTRUCTIONS:
+Generate focused questions that will help the {role} complete their tasks in this phase.
 Each question should map to a specific task or document field where possible.
+Avoid asking questions already answered in prior responses.
 
 Previous answers from this project: {json.dumps(prior_answers[:20]) if prior_answers else 'None yet'}
 
 Return a JSON array of question objects:
 [{{"question_text": "...", "question_type": "STRUCTURED", "maps_to_document_field": "field_name or null", "maps_to_gate_item": "gate_item or null", "context": "why this question matters"}}]
 
-Generate 3-8 questions based on the phase and role context. Be specific to CJA migration."""
+Generate 3-8 questions. Be specific to CJA migration and {role} responsibilities."""
 
         user_prompt = f"""Tasks for {role} in Phase {phase_def.phase_number}:
 {chr(10).join(f'- {td.name} ({td.classification})' for td in role_tasks)}
@@ -243,13 +251,13 @@ async def _get_discovery_agent(db: AsyncSession) -> AgentDefinition:
     from app.config import settings
 
     result = await db.execute(
-        select(AgentDefinition).where(AgentDefinition.name == "discovery_agent")
+        select(AgentDefinition).where(AgentDefinition.name == "discovery")
     )
     agent_def = result.scalar_one_or_none()
 
     if not agent_def:
         agent_def = AgentDefinition(
-            name="discovery_agent",
+            name="discovery",
             display_name="Discovery Agent",
             role_description="Generates targeted questions for stakeholders based on phase context and prior answers.",
             model=settings.CLAUDE_MODEL,

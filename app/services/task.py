@@ -18,6 +18,40 @@ async def get_task_instance(db: AsyncSession, task_instance_id: uuid.UUID) -> Ta
     return result.scalar_one_or_none()
 
 
+async def check_dependencies(db: AsyncSession, task_instance: TaskInstance) -> dict:
+    """
+    Check whether all dependencies for a task instance are satisfied.
+
+    Returns:
+        {
+            "all_met": bool,
+            "blocking": [list of blocking task instance UUIDs as strings],
+            "total": int,
+            "completed": int,
+        }
+    """
+    depends_on = task_instance.depends_on
+    if not depends_on:
+        return {"all_met": True, "blocking": [], "total": 0, "completed": 0}
+
+    dep_ids = [uuid.UUID(str(dep_id)) for dep_id in depends_on]
+
+    result = await db.execute(
+        select(TaskInstance).where(TaskInstance.id.in_(dep_ids))
+    )
+    dep_tasks = list(result.scalars().all())
+
+    completed = [t for t in dep_tasks if t.status == "COMPLETED"]
+    blocking = [str(t.id) for t in dep_tasks if t.status != "COMPLETED"]
+
+    return {
+        "all_met": len(blocking) == 0,
+        "blocking": blocking,
+        "total": len(dep_ids),
+        "completed": len(completed),
+    }
+
+
 async def list_task_instances(
     db: AsyncSession,
     *,
@@ -50,6 +84,17 @@ async def update_task_instance(
     if not task:
         raise ValueError("Task instance not found")
 
+    # When transitioning to IN_PROGRESS, enforce dependency checks
+    new_status = updates.get("status")
+    if new_status == "IN_PROGRESS":
+        dep_check = await check_dependencies(db, task)
+        if not dep_check["all_met"]:
+            blocking_ids = dep_check["blocking"]
+            raise ValueError(
+                f"Cannot start task: {len(blocking_ids)} blocking dependencies not completed. "
+                f"Blocking task IDs: {blocking_ids}"
+            )
+
     old_values = {}
     new_values = {}
     for field, value in updates.items():
@@ -80,6 +125,47 @@ async def update_task_instance(
     return task
 
 
+async def _unblock_dependent_tasks(db: AsyncSession, completed_task: TaskInstance) -> list[TaskInstance]:
+    """
+    Find tasks that depend on the completed task and unblock them if all
+    their dependencies are now satisfied.
+
+    Returns a list of tasks that were unblocked.
+    """
+    completed_task_id_str = str(completed_task.id)
+
+    # Find all BLOCKED tasks in the same project that might depend on this task.
+    # We query all BLOCKED tasks and filter in Python because JSONB array
+    # containment queries vary across dialects.
+    result = await db.execute(
+        select(TaskInstance).where(
+            TaskInstance.project_id == completed_task.project_id,
+            TaskInstance.status == "BLOCKED",
+            TaskInstance.depends_on.isnot(None),
+        )
+    )
+    blocked_tasks = list(result.scalars().all())
+
+    unblocked: list[TaskInstance] = []
+    for candidate in blocked_tasks:
+        deps = candidate.depends_on or []
+        # Check if the completed task is actually one of this task's dependencies
+        dep_strs = [str(d) for d in deps]
+        if completed_task_id_str not in dep_strs:
+            continue
+
+        # Check if ALL dependencies are now completed
+        dep_check = await check_dependencies(db, candidate)
+        if dep_check["all_met"]:
+            candidate.status = "NOT_STARTED"
+            unblocked.append(candidate)
+
+    if unblocked:
+        await db.flush()
+
+    return unblocked
+
+
 async def complete_task(
     db: AsyncSession,
     task_instance_id: uuid.UUID,
@@ -100,6 +186,9 @@ async def complete_task(
         task.human_feedback = human_feedback
 
     await db.flush()
+
+    # Unblock downstream tasks whose dependencies are now fully satisfied
+    await _unblock_dependent_tasks(db, task)
 
     await log_audit(
         db,

@@ -280,3 +280,20 @@ async def get_trust_adjustments(
     from app.services.ai_improvements_engine import auto_adjust_trust_levels
     adjustments = await auto_adjust_trust_levels(body.project_id, db)
     return {"adjustments": adjustments, "count": len(adjustments)}
+
+
+@router.get("/celery-task/{task_id}/status")
+async def get_celery_task_status(
+    task_id: str,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    """Poll the status of a Celery background task."""
+    from app.worker import celery_app
+
+    result = celery_app.AsyncResult(task_id)
+    return {
+        "task_id": task_id,
+        "status": result.status,
+        "result": result.result if result.ready() else None,
+        "error": str(result.result) if result.failed() else None,
+    }

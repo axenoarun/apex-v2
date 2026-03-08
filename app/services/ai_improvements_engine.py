@@ -66,7 +66,7 @@ async def analyze_feedback_and_propose(
         "sample_descriptions": [fb.description for fb in feedbacks[:10] if fb.description],
     }
 
-    agent_def = await _get_improvement_agent(db)
+    agent_def = await _get_improvement(db)
 
     execution = await create_execution(
         db,
@@ -179,7 +179,7 @@ async def extract_knowledge_from_project(
     if not feedbacks and not documents:
         return []
 
-    agent_def = await _get_improvement_agent(db)
+    agent_def = await _get_improvement(db)
 
     execution = await create_execution(
         db,
@@ -301,18 +301,18 @@ async def auto_adjust_trust_levels(
 
 # --- Helpers ---
 
-async def _get_improvement_agent(db: AsyncSession) -> AgentDefinition:
+async def _get_improvement(db: AsyncSession) -> AgentDefinition:
     """Get or create the improvement agent definition."""
     from app.config import settings
 
     result = await db.execute(
-        select(AgentDefinition).where(AgentDefinition.name == "improvement_agent")
+        select(AgentDefinition).where(AgentDefinition.name == "improvement")
     )
     agent_def = result.scalar_one_or_none()
 
     if not agent_def:
         agent_def = AgentDefinition(
-            name="improvement_agent",
+            name="improvement",
             display_name="Improvement Agent",
             role_description="Analyzes feedback patterns, generates improvement proposals, and extracts cross-project knowledge.",
             model=settings.CLAUDE_MODEL,

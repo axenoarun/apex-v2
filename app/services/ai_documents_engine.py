@@ -73,7 +73,7 @@ async def generate_document(
     context = await _build_document_context(project_id, phase_instance_id, template, db)
 
     # Get document agent
-    agent_def = await _get_document_agent(db)
+    agent_def = await _get_document(db)
 
     # Create execution
     execution = await create_execution(
@@ -110,6 +110,12 @@ Generate the complete document: {template.name}"""
         response = await call_claude(system_prompt, user_prompt)
 
         content = _parse_document_content(response.content, template)
+
+        # Validate AI output against template structure
+        validation = _validate_against_template(content, template)
+        if validation["missing_sections"]:
+            content = _fill_missing_sections(content, validation["missing_sections"])
+        content["_validation"] = validation
 
         await complete_execution(
             db, execution.id,
@@ -160,18 +166,18 @@ Generate the complete document: {template.name}"""
 
 # --- Helpers ---
 
-async def _get_document_agent(db: AsyncSession) -> AgentDefinition:
+async def _get_document(db: AsyncSession) -> AgentDefinition:
     """Get or create the document agent definition."""
     from app.config import settings
 
     result = await db.execute(
-        select(AgentDefinition).where(AgentDefinition.name == "document_agent")
+        select(AgentDefinition).where(AgentDefinition.name == "document")
     )
     agent_def = result.scalar_one_or_none()
 
     if not agent_def:
         agent_def = AgentDefinition(
-            name="document_agent",
+            name="document",
             display_name="Document Agent",
             role_description="Generates and maintains migration documents from templates using project context.",
             model=settings.CLAUDE_MODEL,
@@ -256,3 +262,109 @@ def _parse_document_content(content: str, template: DocumentTemplate) -> dict:
         return {"sections": parsed, "raw": content, "format": template.output_format}
     except json.JSONDecodeError:
         return {"raw": content, "format": template.output_format}
+
+
+def _get_expected_section_keys(template: DocumentTemplate) -> list[str]:
+    """Extract expected section keys from a template's structure.
+
+    Supports template_structure formats:
+      - {"sections": {"key1": ..., "key2": ...}}
+      - {"sections": [{"key": "key1", ...}, ...]}
+      - {"key1": ..., "key2": ...}  (flat dict treated as sections)
+    """
+    ts = template.template_structure
+    if not ts or not isinstance(ts, dict):
+        return []
+
+    sections = ts.get("sections", ts)
+
+    if isinstance(sections, dict):
+        return list(sections.keys())
+    elif isinstance(sections, list):
+        keys = []
+        for item in sections:
+            if isinstance(item, dict):
+                key = item.get("key") or item.get("id") or item.get("name") or item.get("title")
+                if key:
+                    keys.append(str(key))
+            elif isinstance(item, str):
+                keys.append(item)
+        return keys
+
+    return []
+
+
+def _validate_against_template(content: dict, template: DocumentTemplate) -> dict:
+    """Validate parsed AI output against the template's expected structure.
+
+    Returns a dict with:
+      - expected_sections: list of keys the template defines
+      - present_sections: list of keys found in the AI output
+      - missing_sections: list of keys missing from the AI output
+      - extra_sections: list of keys in the output but not in the template
+      - coverage_ratio: float 0-1
+      - valid: bool (True if all expected sections are present)
+    """
+    expected = _get_expected_section_keys(template)
+
+    if not expected:
+        return {
+            "expected_sections": [],
+            "present_sections": [],
+            "missing_sections": [],
+            "extra_sections": [],
+            "coverage_ratio": 1.0,
+            "valid": True,
+            "note": "Template has no defined section structure; skipping validation.",
+        }
+
+    # Collect section keys present in the AI output
+    sections_data = content.get("sections", {})
+    if isinstance(sections_data, dict):
+        present = set(sections_data.keys())
+    elif isinstance(sections_data, list):
+        present = set()
+        for item in sections_data:
+            if isinstance(item, dict):
+                key = item.get("key") or item.get("id") or item.get("name") or item.get("title", "")
+                if key:
+                    present.add(str(key))
+    else:
+        present = set()
+
+    expected_set = set(expected)
+    missing = sorted(expected_set - present)
+    extra = sorted(present - expected_set)
+    coverage = (len(expected_set) - len(missing)) / len(expected_set) if expected_set else 1.0
+
+    return {
+        "expected_sections": expected,
+        "present_sections": sorted(present & expected_set),
+        "missing_sections": missing,
+        "extra_sections": extra,
+        "coverage_ratio": round(coverage, 3),
+        "valid": len(missing) == 0,
+    }
+
+
+def _fill_missing_sections(content: dict, missing_keys: list[str]) -> dict:
+    """Add placeholder entries for sections that the AI omitted."""
+    sections = content.get("sections", {})
+
+    if isinstance(sections, dict):
+        for key in missing_keys:
+            sections[key] = {
+                "title": key.replace("_", " ").title(),
+                "content": "(Section pending - requires additional input)",
+            }
+        content["sections"] = sections
+    elif isinstance(sections, list):
+        for key in missing_keys:
+            sections.append({
+                "key": key,
+                "title": key.replace("_", " ").title(),
+                "content": "(Section pending - requires additional input)",
+            })
+        content["sections"] = sections
+
+    return content

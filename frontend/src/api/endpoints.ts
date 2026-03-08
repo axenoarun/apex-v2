@@ -71,6 +71,8 @@ export const extractKnowledge = (projectId: string) =>
   api.post('/agents/extract-knowledge', { project_id: projectId });
 export const getTrustAdjustments = (projectId: string) =>
   api.post('/agents/trust-adjustments', { project_id: projectId });
+export const getCeleryTaskStatus = (taskId: string) =>
+  api.get(`/agents/celery-task/${taskId}/status`);
 
 // --- Documents ---
 export const listDocumentTemplates = (phaseDefId?: string) =>
