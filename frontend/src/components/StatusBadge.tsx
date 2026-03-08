@@ -5,6 +5,7 @@ const colorMap: Record<string, string> = {
   PENDING: 'bg-amber-100 text-amber-700',
   IN_PROGRESS: 'bg-blue-100 text-blue-700',
   AI_PROCESSING: 'bg-purple-100 text-purple-700',
+  AI_DRAFTING: 'bg-purple-100 text-purple-700',
   AI_PAUSED_NEEDS_INPUT: 'bg-orange-100 text-orange-700',
   WAITING_INPUT: 'bg-amber-100 text-amber-700',
   IN_REVIEW: 'bg-indigo-100 text-indigo-700',

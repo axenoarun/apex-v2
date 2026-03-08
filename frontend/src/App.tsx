@@ -13,6 +13,8 @@ import QuestionsTab from './pages/QuestionsTab';
 import FeedbackTab from './pages/FeedbackTab';
 import CostsTab from './pages/CostsTab';
 import AuditTab from './pages/AuditTab';
+import ExecutionsTab from './pages/ExecutionsTab';
+import KnowledgeTab from './pages/KnowledgeTab';
 import Notifications from './pages/Notifications';
 import Improvements from './pages/Improvements';
 
@@ -47,6 +49,8 @@ export default function App() {
             <Route path="documents" element={<DocumentsTab />} />
             <Route path="questions" element={<QuestionsTab />} />
             <Route path="feedback" element={<FeedbackTab />} />
+            <Route path="executions" element={<ExecutionsTab />} />
+            <Route path="knowledge" element={<KnowledgeTab />} />
             <Route path="costs" element={<CostsTab />} />
             <Route path="audit" element={<AuditTab />} />
           </Route>

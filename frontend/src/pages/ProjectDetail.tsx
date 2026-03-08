@@ -12,6 +12,8 @@ import {
   MessageSquare,
   BarChart3,
   ScrollText,
+  Bot,
+  BookOpen,
 } from 'lucide-react';
 
 const tabs = [
@@ -22,6 +24,8 @@ const tabs = [
   { path: 'documents', label: 'Documents', icon: FileText },
   { path: 'questions', label: 'Questions', icon: HelpCircle },
   { path: 'feedback', label: 'Feedback', icon: MessageSquare },
+  { path: 'executions', label: 'AI Agents', icon: Bot },
+  { path: 'knowledge', label: 'Knowledge', icon: BookOpen },
   { path: 'costs', label: 'Costs', icon: BarChart3 },
   { path: 'audit', label: 'Audit', icon: ScrollText },
 ];
