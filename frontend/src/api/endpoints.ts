@@ -56,6 +56,22 @@ export const createExecution = (data: Record<string, unknown>) => api.post('/age
 export const listExecutions = (params: Record<string, string>) => api.get('/agents/executions', { params });
 export const getExecution = (id: string) => api.get(`/agents/executions/${id}`);
 
+// --- AI Execution ---
+export const executeAITask = (taskInstanceId: string, asyncMode = true) =>
+  api.post('/agents/execute-task', { task_instance_id: taskInstanceId, async_mode: asyncMode });
+export const resumeExecution = (executionId: string, additionalInput: Record<string, unknown>) =>
+  api.post(`/agents/executions/${executionId}/resume`, { additional_input: additionalInput });
+export const generateQuestions = (projectId: string, phaseInstanceId: string, asyncMode = true) =>
+  api.post('/agents/generate-questions', { project_id: projectId, phase_instance_id: phaseInstanceId, async_mode: asyncMode });
+export const generateDocument = (data: { project_id: string; template_id: string; phase_instance_id: string; task_instance_id?: string; async_mode?: boolean }) =>
+  api.post('/agents/generate-document', data);
+export const analyzeFeedback = (projectId: string) =>
+  api.post('/agents/analyze-feedback', { project_id: projectId });
+export const extractKnowledge = (projectId: string) =>
+  api.post('/agents/extract-knowledge', { project_id: projectId });
+export const getTrustAdjustments = (projectId: string) =>
+  api.post('/agents/trust-adjustments', { project_id: projectId });
+
 // --- Documents ---
 export const listDocumentTemplates = (phaseDefId?: string) =>
   api.get('/documents/templates', { params: phaseDefId ? { phase_definition_id: phaseDefId } : {} });

@@ -13,6 +13,18 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ANTHROPIC_API_KEY: str = ""
 
+    # AI Model Configuration
+    CLAUDE_MODEL: str = "claude-sonnet-4-20250514"
+    CLAUDE_MAX_TOKENS: int = 4096
+
+    # Cost rates per token (Claude Sonnet)
+    COST_PER_INPUT_TOKEN: float = 0.000003
+    COST_PER_OUTPUT_TOKEN: float = 0.000015
+
+    # Confidence thresholds (Rule 5.4)
+    AI_CONFIDENCE_THRESHOLD: float = 0.6       # Below this → pause for input
+    AI_CONFIDENCE_AUTO_THRESHOLD: float = 0.8  # Above this → auto-complete in FULL_AUTO
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
