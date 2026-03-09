@@ -71,6 +71,7 @@ async def update_project(
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(project, field, value)
     await db.flush()
+    await db.refresh(project)
     return project
 
 

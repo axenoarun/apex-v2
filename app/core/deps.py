@@ -1,3 +1,4 @@
+import uuid as _uuid
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -27,7 +28,12 @@ async def get_current_user(
     except Exception:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
-    result = await db.execute(select(User).where(User.id == user_id))
+    try:
+        uid = _uuid.UUID(user_id) if isinstance(user_id, str) else user_id
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    result = await db.execute(select(User).where(User.id == uid))
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
@@ -64,8 +70,6 @@ def require_permission(permission: str):
 
     return _check
 
-
-import uuid as _uuid
 
 
 async def check_project_permission(

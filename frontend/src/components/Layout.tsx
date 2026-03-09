@@ -8,6 +8,7 @@ import {
   Lightbulb,
   LogOut,
   Zap,
+  Shield,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -15,6 +16,7 @@ const navItems = [
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/improvements', label: 'Improvements', icon: Lightbulb },
+  { to: '/admin', label: 'Admin', icon: Shield },
 ];
 
 export default function Layout() {

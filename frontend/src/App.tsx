@@ -17,6 +17,7 @@ import ExecutionsTab from './pages/ExecutionsTab';
 import KnowledgeTab from './pages/KnowledgeTab';
 import Notifications from './pages/Notifications';
 import Improvements from './pages/Improvements';
+import AdminSettings from './pages/AdminSettings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -56,6 +57,7 @@ export default function App() {
           </Route>
           <Route path="notifications" element={<Notifications />} />
           <Route path="improvements" element={<Improvements />} />
+          <Route path="admin" element={<AdminSettings />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
